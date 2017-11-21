@@ -1,9 +1,24 @@
 ﻿using System;
-using System.ComponentModel.Design;
-using System.Runtime.CompilerServices;
 
 namespace Wirex.Engine
 {
+    public class OrderSnapshot
+    {
+        public Guid Id { get; set; }
+
+        public string BaseCurrency { get; set; }
+
+        public string QuoteCurrency { get; set; }
+
+        public Side Side { get; set; }
+
+        public decimal Price { get; set; }
+
+        public decimal Amount { get; set; }
+
+        public decimal Remaining { get; set; }
+    }
+
     public class Order : IEquatable<Order>
     {
         public Order(Guid id, CurrencyPair currencyPair, Side side, decimal price, decimal amount)
@@ -28,6 +43,20 @@ namespace Wirex.Engine
 
         public decimal RemainingAmount { get; private set; }
 
+        public OrderSnapshot GetSnapshot()
+        {
+            return new OrderSnapshot
+            {
+                Id = Id,
+                BaseCurrency = CurrencyPair.BaseCurrency,
+                QuoteCurrency = CurrencyPair.QuoteCurrency,
+                Side = Side,
+                Price = Price,
+                Amount = Amount,
+                Remaining = RemainingAmount
+            };
+        }
+
         public bool IsClosed() => RemainingAmount == 0.0m;
 
         public bool Equals(Order other)
@@ -47,12 +76,12 @@ namespace Wirex.Engine
                 return true;
             if (obj.GetType() != GetType())
                 return false;
-            return Equals((Order) obj);
+            return Equals((Order)obj);
         }
 
         public override int GetHashCode() => Id.GetHashCode();
 
-        public override string ToString() 
+        public override string ToString()
             => $"Id: {Id}, CurrencyPair: {CurrencyPair}, Price: {Price}, Side: {Side}, Amount: {Amount}, RemainingAmount: {RemainingAmount}";
 
         public bool TryMatch(Order other)
@@ -88,6 +117,15 @@ namespace Wirex.Engine
                 right.RemainingAmount -= RemainingAmount;
                 RemainingAmount = 0;
             }
+        }
+
+        public static Order Restore(OrderSnapshot snapshot)
+        {
+            var currency = new CurrencyPair(snapshot.BaseCurrency, snapshot.QuoteCurrency);
+            return new Order(snapshot.Id, currency, snapshot.Side, snapshot.Price, snapshot.Amount)
+            {
+                RemainingAmount = snapshot.Remaining
+            };
         }
     }
 }

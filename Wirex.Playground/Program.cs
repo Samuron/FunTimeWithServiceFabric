@@ -25,7 +25,7 @@ namespace Wirex.Playground
 
         private static async Task StartRemoteProcessing(int orderCount)
         {
-            Console.WriteLine("Starting direct processing");
+            Console.WriteLine("Starting remote processing");
             var orders = OrderGenerator.Generate(orderCount, "USD", "EUR", 0.93, 0.99);
 
             var options = new ProgressBarOptions
