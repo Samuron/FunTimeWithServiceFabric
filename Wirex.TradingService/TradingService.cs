@@ -9,33 +9,16 @@ using Microsoft.ServiceFabric.Services.Communication.Runtime;
 using Microsoft.ServiceFabric.Services.Runtime;
 using Wirex.Engine;
 using System.Reactive.Linq;
-using System.Reactive;
+using Microsoft.ServiceFabric.Data;
 using Microsoft.ServiceFabric.Services.Remoting.Runtime;
 
 namespace Wirex.TradingService
 {
     internal sealed class TradingService : StatefulService, ITradingService
     {
-        private TradingEngine _tradingEngine;
-
         public TradingService(StatefulServiceContext context)
             : base(context)
         {
-            _tradingEngine = new TradingEngine();
-        }
-
-        private async Task<Order> RemoveClosedOrder(EventPattern<OrderArgs> arg)
-        {
-            var order = arg.EventArgs.Order;
-            var orders = await StateManager.GetOrAddAsync<IReliableConcurrentQueue<Order>>("orders");
-
-            using (var transaction = StateManager.CreateTransaction())
-            {
-                await orders.EnqueueAsync(transaction, order);
-                await transaction.CommitAsync();
-            }
-
-            return order;
         }
 
         /// <summary>
@@ -55,7 +38,7 @@ namespace Wirex.TradingService
 
         public async Task PlaceOrderAsync(PlaceOrderRequest request)
         {
-            var orders = await StateManager.GetOrAddAsync<IReliableConcurrentQueue<PlaceOrderRequest>>("orders");
+            var orders = await StateManager.GetOrAddAsync<IReliableQueue<PlaceOrderRequest>>("orders");
 
             using (var transaction = StateManager.CreateTransaction())
             {
@@ -66,7 +49,8 @@ namespace Wirex.TradingService
 
         protected override async Task RunAsync(CancellationToken cancellationToken)
         {
-            var orders = await StateManager.GetOrAddAsync<IReliableConcurrentQueue<PlaceOrderRequest>>("orders");
+            var ordersQueue = await StateManager.GetOrAddAsync<IReliableQueue<PlaceOrderRequest>>("orders");
+            var ordersState = await StateManager.GetOrAddAsync<IReliableDictionary<Guid, Order>>("ordersState");
 
             while (true)
             {
@@ -74,22 +58,41 @@ namespace Wirex.TradingService
 
                 using (var transaction = StateManager.CreateTransaction())
                 {
-                    var request = await orders.TryDequeueAsync(transaction);
-
+                    var request = await ordersQueue.TryDequeueAsync(transaction);
                     if (!request.HasValue)
                     {
                         await transaction.CommitAsync();
                         continue;
                     }
+
                     var value = request.Value;
+
                     var currencyPair = new CurrencyPair(value.BaseCurrency, value.QuoteCurrency);
                     var order = new Order(value.Id, currencyPair, value.Side, value.Price, value.Amount);
 
-                    _tradingEngine.Place(order);
+                    var potentialMatches = await ordersState.CreateEnumerableAsync(transaction);
+
+                    var enumerator = potentialMatches.GetAsyncEnumerator();
+                    while (await enumerator.MoveNextAsync(cancellationToken))
+                    {
+                        var potentialMatch = enumerator.Current.Value;
+                        if (order.TryMatch(potentialMatch))
+                        {
+                            await PersistChanges(order, ordersState, transaction);
+                            await PersistChanges(potentialMatch, ordersState, transaction);
+                            break;
+                        }
+                    }
+                    
                     ServiceEventSource.Current.ServiceMessage(Context, "Order {0} was placed", request.Value);
                     await transaction.CommitAsync();
                 }
             }
+        }
+
+        private Task PersistChanges(Order order, IReliableDictionary<Guid, Order> dictionary, ITransaction transaction)
+        {
+            return order.IsClosed() ? dictionary.TryRemoveAsync(transaction, order.Id) : dictionary.SetAsync(transaction, order.Id, order);
         }
     }
 }
