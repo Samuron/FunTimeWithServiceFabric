@@ -2,62 +2,25 @@
 
 namespace Wirex.Engine
 {
-    public class OrderSnapshot
-    {
-        public Guid Id { get; set; }
-
-        public string BaseCurrency { get; set; }
-
-        public string QuoteCurrency { get; set; }
-
-        public Side Side { get; set; }
-
-        public decimal Price { get; set; }
-
-        public decimal Amount { get; set; }
-
-        public decimal Remaining { get; set; }
-    }
-
     public class Order : IEquatable<Order>
     {
+        private readonly decimal _amount;
+        private readonly CurrencyPair _currencyPair;
+        private readonly decimal _price;
+        private readonly Side _side;
+        private decimal _remainingAmount;
+
         public Order(Guid id, CurrencyPair currencyPair, Side side, decimal price, decimal amount)
         {
             Id = id;
-            CurrencyPair = currencyPair;
-            Price = price;
-            Side = side;
-            Amount = amount;
-            RemainingAmount = amount;
+            _currencyPair = currencyPair;
+            _price = price;
+            _side = side;
+            _amount = amount;
+            _remainingAmount = amount;
         }
 
         public Guid Id { get; }
-
-        public CurrencyPair CurrencyPair { get; }
-
-        public Side Side { get; }
-
-        public decimal Price { get; }
-
-        public decimal Amount { get; }
-
-        public decimal RemainingAmount { get; private set; }
-
-        public OrderSnapshot GetSnapshot()
-        {
-            return new OrderSnapshot
-            {
-                Id = Id,
-                BaseCurrency = CurrencyPair.BaseCurrency,
-                QuoteCurrency = CurrencyPair.QuoteCurrency,
-                Side = Side,
-                Price = Price,
-                Amount = Amount,
-                Remaining = RemainingAmount
-            };
-        }
-
-        public bool IsClosed() => RemainingAmount == 0.0m;
 
         public bool Equals(Order other)
         {
@@ -68,6 +31,22 @@ namespace Wirex.Engine
             return Id.Equals(other.Id);
         }
 
+        public OrderSnapshot GetSnapshot()
+        {
+            return new OrderSnapshot
+            {
+                Id = Id,
+                BaseCurrency = _currencyPair.BaseCurrency,
+                QuoteCurrency = _currencyPair.QuoteCurrency,
+                Side = _side,
+                Price = _price,
+                Amount = _amount,
+                Remaining = _remainingAmount
+            };
+        }
+
+        public bool IsClosed() => _remainingAmount == 0.0m;
+
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj))
@@ -76,28 +55,29 @@ namespace Wirex.Engine
                 return true;
             if (obj.GetType() != GetType())
                 return false;
-            return Equals((Order)obj);
+            return Equals((Order) obj);
         }
 
         public override int GetHashCode() => Id.GetHashCode();
 
         public override string ToString()
-            => $"Id: {Id}, CurrencyPair: {CurrencyPair}, Price: {Price}, Side: {Side}, Amount: {Amount}, RemainingAmount: {RemainingAmount}";
+            =>
+                $"Id: {Id}, CurrencyPair: {_currencyPair}, Price: {_price}, Side: {_side}, Amount: {_amount}, RemainingAmount: {_remainingAmount}";
 
         public bool TryMatch(Order other)
         {
             if (other == null)
                 throw new ArgumentNullException(nameof(other));
 
-            if (Side == other.Side || !CurrencyPair.Equals(other.CurrencyPair))
+            if (_side == other._side || !_currencyPair.Equals(other._currencyPair))
                 return false;
 
-            switch (Side)
+            switch (_side)
             {
-                case Side.Buy when other.Price <= Price:
+                case Side.Buy when other._price <= _price:
                     Close(other);
                     return true;
-                case Side.Sell when other.Price > Price:
+                case Side.Sell when other._price > _price:
                     Close(other);
                     return true;
                 default:
@@ -107,15 +87,15 @@ namespace Wirex.Engine
 
         private void Close(Order right)
         {
-            if (RemainingAmount >= right.RemainingAmount)
+            if (_remainingAmount >= right._remainingAmount)
             {
-                RemainingAmount -= right.RemainingAmount;
-                right.RemainingAmount = 0;
+                _remainingAmount -= right._remainingAmount;
+                right._remainingAmount = 0;
             }
             else
             {
-                right.RemainingAmount -= RemainingAmount;
-                RemainingAmount = 0;
+                right._remainingAmount -= _remainingAmount;
+                _remainingAmount = 0;
             }
         }
 
@@ -124,7 +104,7 @@ namespace Wirex.Engine
             var currency = new CurrencyPair(snapshot.BaseCurrency, snapshot.QuoteCurrency);
             return new Order(snapshot.Id, currency, snapshot.Side, snapshot.Price, snapshot.Amount)
             {
-                RemainingAmount = snapshot.Remaining
+                _remainingAmount = snapshot.Remaining
             };
         }
     }

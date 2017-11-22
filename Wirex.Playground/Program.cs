@@ -17,7 +17,7 @@ namespace Wirex.Playground
         {
             var orderCount = 100_000;
 
-            StartRemoteProcessing(orderCount / 1000).Wait();
+            StartRemoteProcessing(orderCount / 100).Wait();
 
             Console.WriteLine("Press <Enter> to exit");
             Console.ReadLine();
@@ -38,7 +38,10 @@ namespace Wirex.Playground
             };
 
             var address = new Uri("fabric:/Wirex.Service/Wirex.TradingService");
-            var client = ServiceProxy.Create<ITradingService>(address, new ServicePartitionKey(1), targetReplicaSelector: TargetReplicaSelector.PrimaryReplica);
+            var client = ServiceProxy.Create<ITradingService>(address, new ServicePartitionKey(1));
+
+            var count = await client.GetOpenOrdersCount();
+            Console.WriteLine($"Currently there is {count} open orders");
 
             var timer = new Stopwatch();
             using (var progressBar = new ProgressBar(orderCount, "Placing orders on remote server", options))
@@ -46,14 +49,15 @@ namespace Wirex.Playground
                 timer.Start();
                 foreach (var order in orders)
                 {
+                    var snapshot = order.GetSnapshot();
                     await client.PlaceOrderAsync(new PlaceOrderRequest
                     {
-                        Id = order.Id,
-                        Amount = order.Amount,
-                        Price = order.Price,
-                        Side = order.Side,
-                        BaseCurrency = order.CurrencyPair.BaseCurrency,
-                        QuoteCurrency = order.CurrencyPair.QuoteCurrency
+                        Id = snapshot.Id,
+                        Amount = snapshot.Amount,
+                        Price = snapshot.Price,
+                        Side = snapshot.Side,
+                        BaseCurrency = snapshot.BaseCurrency,
+                        QuoteCurrency = snapshot.QuoteCurrency
                     });
                     progressBar.Tick($"Order {order} was placed");
                 }
@@ -61,6 +65,12 @@ namespace Wirex.Playground
             timer.Stop();
             Console.WriteLine();
             Console.WriteLine($"Processed {orderCount} orders in {timer.ElapsedMilliseconds} ms, average time: {timer.ElapsedMilliseconds / (double)orderCount} ms");
+
+            for (int i = 0; i < 1000; i++)
+            {
+                count = await client.GetOpenOrdersCount();
+                Console.WriteLine($"Currently there is {count} open orders");
+            }
         }
 
         public static void StartDirectProcessing(int orderCount)

@@ -94,6 +94,7 @@
     <Compile Include="ITradingService.cs" />
     <Compile Include="Order.cs" />
     <Compile Include="OrderArgs.cs" />
+    <Compile Include="OrderSnapshot.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Side.cs" />
     <Compile Include="TradingEngine.cs" />

@@ -19,8 +19,8 @@ namespace Wirex.Engine.Test
 
             // Assert
             Assert.That(isMatch);
-            Assert.That(order1.RemainingAmount, Is.EqualTo(0.0m));
-            Assert.That(order2.RemainingAmount, Is.EqualTo(10.0m));
+            Assert.That(order1.GetSnapshot().Remaining, Is.EqualTo(0.0m));
+            Assert.That(order2.GetSnapshot().Remaining, Is.EqualTo(10.0m));
         }
 
         [TestCase(2.5, 2.0)]
@@ -35,8 +35,8 @@ namespace Wirex.Engine.Test
 
             // Assert
             Assert.That(isMatch);
-            Assert.That(order1.RemainingAmount, Is.EqualTo(10.0m));
-            Assert.That(order2.RemainingAmount, Is.EqualTo(0.0m));
+            Assert.That(order1.GetSnapshot().Remaining, Is.EqualTo(10.0m));
+            Assert.That(order2.GetSnapshot().Remaining, Is.EqualTo(0.0m));
         }
 
         [Test]

@@ -6,6 +6,8 @@ namespace Wirex.Engine
     public interface ITradingService : Microsoft.ServiceFabric.Services.Remoting.IService
     {
         Task PlaceOrderAsync(PlaceOrderRequest request);
+
+        Task<long> GetOpenOrdersCount();
     }
 
     public class PlaceOrderRequest

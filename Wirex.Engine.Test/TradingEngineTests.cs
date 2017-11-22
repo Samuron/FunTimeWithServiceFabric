@@ -20,8 +20,8 @@ namespace Wirex.Engine.Test
                 {
                     Assert.That(e.Order, Is.EqualTo(order1));
 
-                    Assert.That(order1.RemainingAmount, Is.EqualTo(0.00m));
-                    Assert.That(order2.RemainingAmount, Is.EqualTo(10.0m));
+                    Assert.That(order1.GetSnapshot().Remaining, Is.EqualTo(0.00m));
+                    Assert.That(order2.GetSnapshot().Remaining, Is.EqualTo(10.0m));
                 };
 
                 tradingEngine.Place(order1);
@@ -41,8 +41,8 @@ namespace Wirex.Engine.Test
                 {
                     Assert.That(e.Order, Is.EqualTo(order1));
 
-                    Assert.That(order1.RemainingAmount, Is.EqualTo(0.00m));
-                    Assert.That(order2.RemainingAmount, Is.EqualTo(10.0m));
+                    Assert.That(order1.GetSnapshot().Remaining, Is.EqualTo(0.00m));
+                    Assert.That(order2.GetSnapshot().Remaining, Is.EqualTo(10.0m));
                 };
 
                 tradingEngine.Place(order1);
